@@ -9,9 +9,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { Link } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -40,108 +42,194 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <View style={styles.content}>
-        <Text style={styles.emoji}>🔐</Text>
-        <Text style={styles.title}>Bem-vindo!</Text>
-        <Text style={styles.subtitle}>Faça login para continuar</Text>
+    <View style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <View style={styles.scrollContent}>
+          <View style={styles.innerContent}>
+            {/* Logo e título */}
+            <View style={styles.logoContainer}>
+              <View style={styles.imageWrapper}>
+                <Image 
+                  source={require('../../assets/FoxList.png')} 
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
+              </View>
+            </View>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          editable={!loading}
-        />
+            <Text style={styles.welcomeText}>Bem - vindo(a) !</Text>
+            <Text style={styles.subtitle}>Pequenas tarefas</Text>
+            <Text style={styles.subtitle}>geram grandes resultados.</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Senha"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoCapitalize="none"
-          editable={!loading}
-        />
+            {/* Card de Login */}
+            <View style={styles.loginCard}>
+              <Text style={styles.loginTitle}>Login</Text>
 
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Entrar</Text>
-          )}
-        </TouchableOpacity>
+              {/* Campo de nome/email */}
+              <View style={styles.inputContainer}>
+                <Ionicons name="person" size={20} color="#8B4513" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Nome..."
+                  placeholderTextColor="#999"
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!loading}
+                />
+              </View>
 
-        <View style={styles.registerContainer}>
-          <Text style={styles.registerText}>Não tem conta? </Text>
-          <Link href="/(auth)/register" asChild>
-            <TouchableOpacity disabled={loading}>
-              <Text style={styles.registerLink}>Cadastre-se</Text>
-            </TouchableOpacity>
-          </Link>
+              {/* Campo de senha */}
+              <View style={styles.inputContainer}>
+                <Ionicons name="lock-closed" size={20} color="#8B4513" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Senha..."
+                  placeholderTextColor="#999"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  editable={!loading}
+                />
+              </View>
+
+              {/* Botão Entrar */}
+              <TouchableOpacity
+                style={[styles.button, loading && styles.buttonDisabled]}
+                onPress={handleLogin}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#8B4513" />
+                ) : (
+                  <Text style={styles.buttonText}>Entrar</Text>
+                )}
+              </TouchableOpacity>
+
+              {/* Link de cadastro */}
+              <View style={styles.registerContainer}>
+                <Text style={styles.registerText}>Não tem um conta? </Text>
+                <Link href="/(auth)/register" asChild>
+                  <TouchableOpacity disabled={loading}>
+                    <Text style={styles.registerLink}>Cadastre-se</Text>
+                  </TouchableOpacity>
+                </Link>
+              </View>
+            </View>
+          </View>
         </View>
-
-        <Text style={styles.infoText}>
-          💡 Dica: Se não tiver conta, crie uma nova!
-        </Text>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#FFFFF2",
   },
-  content: {
+  keyboardView: {
     flex: 1,
-    justifyContent: "center",
-    padding: 20,
   },
-  emoji: {
-    fontSize: 60,
-    textAlign: "center",
+  scrollContent: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  innerContent: {
+    padding: 20,
+    paddingBottom: 0,
+  },
+  logoContainer: {
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 20,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: "bold",
+  imageWrapper: {
+    width: 220,
+    height: 220,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+    alignSelf: "center",
+  },
+  logoImage: {
+    width: 220,
+    height: 220,
+  },
+  logoText: {
+    fontSize: 18,
+    color: "#D4A574",
+    fontWeight: "500",
+  },
+  welcomeText: {
+    fontSize: 28,
+    fontWeight: "600",
     color: "#333",
-    marginBottom: 8,
     textAlign: "center",
+    marginBottom: 10,
   },
   subtitle: {
     fontSize: 16,
-    color: "#666",
-    marginBottom: 40,
+    color: "#D4A574",
     textAlign: "center",
+    lineHeight: 24,
+  },
+  loginCard: {
+    backgroundColor: "#904D00",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 30,
+    marginTop: 20,
+    marginHorizontal: -20,
+    marginBottom: 0,
+    paddingBottom: 50,
+    minHeight: "60%",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: -4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  loginTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#FFF",
+    marginBottom: 20,
+  },
+  inputContainer: {
+    backgroundColor: "#FFFFF2",
+    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+    paddingHorizontal: 15,
+    height: 50,
+    borderWidth: 0,
+  },
+  inputIcon: {
+    marginRight: 10,
   },
   input: {
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 15,
+    flex: 1,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: "#ddd",
+    color: "#333",
+    height: "100%",
+    outlineStyle: "none",
   },
   button: {
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
+    backgroundColor: "#D4A574",
+    borderRadius: 10,
     padding: 15,
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 15,
     minHeight: 50,
     justifyContent: "center",
   },
@@ -149,7 +237,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: "#fff",
+    color: "#904D00",
     fontSize: 16,
     fontWeight: "bold",
   },
@@ -160,19 +248,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   registerText: {
-    color: "#666",
-    fontSize: 14,
+    color: "#F5E6D3",
+    fontSize: 13,
   },
   registerLink: {
-    color: "#007AFF",
-    fontSize: 14,
+    color: "#FFF",
+    fontSize: 13,
     fontWeight: "bold",
-  },
-  infoText: {
-    marginTop: 30,
-    textAlign: "center",
-    color: "#888",
-    fontSize: 14,
-    paddingHorizontal: 20,
+    textDecorationLine: "underline",
   },
 });
