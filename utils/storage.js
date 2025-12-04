@@ -85,7 +85,7 @@ export const validateLogin = async (email, password) => {
       return { success: true, user: userWithoutPassword };
     }
 
-    return { success: false, message: "Email ou senha inválidos" };
+    return { success: false, message: "Credenciais inválidas" };
   } catch (error) {
     console.error("Erro ao validar login:", error);
     return { success: false, message: "Erro ao fazer login" };

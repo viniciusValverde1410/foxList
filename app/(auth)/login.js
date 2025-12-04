@@ -14,16 +14,28 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { Link } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import CustomModal from "../components/CustomModal";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalConfig, setModalConfig] = useState({
+    type: "info",
+    title: "",
+    message: "",
+  });
   const { signIn } = useAuth();
+
+  const showModal = (type, title, message) => {
+    setModalConfig({ type, title, message });
+    setModalVisible(true);
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Erro", "Preencha todos os campos");
+      showModal("error", "Erro", "Preencha todos os campos");
       return;
     }
 
@@ -32,10 +44,12 @@ export default function LoginScreen() {
       const result = await signIn(email, password);
 
       if (!result.success) {
-        Alert.alert("Erro", result.message || "Falha ao fazer login");
+        showModal("error", "Erro de Login" || "Falha ao fazer login");
+      } else {
+        showModal("success", "Sucesso!", "Login realizado com sucesso!");
       }
     } catch (error) {
-      Alert.alert("Erro", "Falha ao fazer login");
+      showModal("error", "Erro", "Falha ao fazer login. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -124,6 +138,14 @@ export default function LoginScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      <CustomModal
+        visible={modalVisible}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onClose={() => setModalVisible(false)}
+      />
     </View>
   );
 }

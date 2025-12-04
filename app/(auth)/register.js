@@ -14,6 +14,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, Link } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import CustomModal from "../components/CustomModal";
 
 export default function RegisterScreen() {
   const [name, setName] = useState("");
@@ -21,28 +22,39 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalConfig, setModalConfig] = useState({
+    type: "info",
+    title: "",
+    message: "",
+  });
   const { signUp } = useAuth();
   const router = useRouter();
 
+  const showModal = (type, title, message) => {
+    setModalConfig({ type, title, message });
+    setModalVisible(true);
+  };
+
   const handleRegister = async () => {
     if (!name || !email || !password || !confirmPassword) {
-      Alert.alert("Erro", "Preencha todos os campos");
+      showModal("error", "Erro", "Preencha todos os campos");
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert("Erro", "A senha deve ter pelo menos 6 caracteres");
+      showModal("error", "Senha Fraca", "A senha deve ter pelo menos 6 caracteres");
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Erro", "As senhas não coincidem");
+      showModal("error", "Erro", "As senhas não coincidem");
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert("Erro", "Email inválido");
+      showModal("error", "Email Inválido", "Por favor, insira um email válido");
       return;
     }
 
@@ -51,12 +63,12 @@ export default function RegisterScreen() {
       const result = await signUp(name, email, password);
 
       if (result.success) {
-        Alert.alert("Sucesso", "Conta criada com sucesso!", [{ text: "OK" }]);
+        showModal("success", "Sucesso!", "Conta criada com sucesso! Você será redirecionado.");
       } else {
-        Alert.alert("Erro", result.message || "Falha ao criar conta");
+        showModal("error", "Erro", result.message || "Falha ao criar conta");
       }
     } catch (error) {
-      Alert.alert("Erro", "Falha ao criar conta");
+      showModal("error", "Erro", "Falha ao criar conta. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -166,6 +178,14 @@ export default function RegisterScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      <CustomModal
+        visible={modalVisible}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onClose={() => setModalVisible(false)}
+      />
     </View>
   );
 }
