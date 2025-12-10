@@ -82,12 +82,12 @@ export default function LoginScreen() {
             <View style={styles.loginCard}>
               <Text style={styles.loginTitle}>Login</Text>
 
-              {/* Campo de nome/email */}
+              {/* Campo de email */}
               <View style={styles.inputContainer}>
                 <Ionicons name="person" size={20} color="#8B4513" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Nome..."
+                  placeholder="Email..."
                   placeholderTextColor="#999"
                   value={email}
                   onChangeText={setEmail}

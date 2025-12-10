@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,11 +6,16 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  TextInput,
+  Modal,
 } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 
 export default function ProfileScreen() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, updateProfile, deleteAccount } = useAuth();
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editName, setEditName] = useState(user?.name || "");
+  const [editEmail, setEditEmail] = useState(user?.email || "");
 
   const handleLogout = () => {
     Alert.alert("Sair", "Tem certeza que deseja sair?", [
@@ -21,6 +26,53 @@ export default function ProfileScreen() {
         onPress: signOut,
       },
     ]);
+  };
+
+  const handleEditProfile = () => {
+    setEditName(user?.name || "");
+    setEditEmail(user?.email || "");
+    setIsEditModalVisible(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editName.trim() || !editEmail.trim()) {
+      Alert.alert("Erro", "Preencha todos os campos");
+      return;
+    }
+
+    const result = await updateProfile({
+      name: editName.trim(),
+      email: editEmail.trim(),
+    });
+
+    if (result.success) {
+      Alert.alert("✅ Sucesso!", "Perfil atualizado com sucesso!");
+      setIsEditModalVisible(false);
+    } else {
+      Alert.alert("Erro", result.message || "Não foi possível atualizar o perfil");
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "⚠️ Excluir Conta",
+      "Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita!",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: async () => {
+            const result = await deleteAccount();
+            if (result.success) {
+              Alert.alert("✅ Conta Excluída", "Sua conta foi excluída com sucesso");
+            } else {
+              Alert.alert("Erro", result.message || "Não foi possível excluir a conta");
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -55,8 +107,16 @@ export default function ProfileScreen() {
           </Text>
         </View>
 
+        <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
+          <Text style={styles.editButtonText}>✏️ Editar Perfil</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>🔒 Sair da Conta</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
+          <Text style={styles.deleteButtonText}>🗑️ Excluir Conta</Text>
         </TouchableOpacity>
 
         <View style={styles.versionCard}>
@@ -65,6 +125,56 @@ export default function ProfileScreen() {
           </Text>
         </View>
       </View>
+
+      {/* Modal de Edição */}
+      <Modal
+        visible={isEditModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Editar Perfil</Text>
+
+            <Text style={styles.inputLabel}>Nome</Text>
+            <TextInput
+              style={styles.input}
+              value={editName}
+              onChangeText={setEditName}
+              placeholder="Digite seu nome"
+              placeholderTextColor="#999"
+            />
+
+            <Text style={styles.inputLabel}>Email</Text>
+            <TextInput
+              style={styles.input}
+              value={editEmail}
+              onChangeText={setEditEmail}
+              placeholder="Digite seu email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholderTextColor="#999"
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setIsEditModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleSaveProfile}
+              >
+                <Text style={styles.saveButtonText}>Salvar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -154,7 +264,43 @@ const styles = StyleSheet.create({
     color: "#388E3C",
     textAlign: "center",
   },
+  editButton: {
+    width: "100%",
+    backgroundColor: "#007AFF",
+    borderRadius: 12,
+    padding: 18,
+    alignItems: "center",
+    marginBottom: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  editButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
   logoutButton: {
+    width: "100%",
+    backgroundColor: "#FF9500",
+    borderRadius: 12,
+    padding: 18,
+    alignItems: "center",
+    marginBottom: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  logoutText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  deleteButton: {
     width: "100%",
     backgroundColor: "#FF3B30",
     borderRadius: 12,
@@ -167,7 +313,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-  logoutText: {
+  deleteButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
@@ -181,5 +327,73 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#999",
     textAlign: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "85%",
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 25,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: "#F5F5F5",
+    borderRadius: 10,
+    padding: 15,
+    fontSize: 16,
+    color: "#333",
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: "#E5E5E5",
+  },
+  cancelButtonText: {
+    color: "#333",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  saveButton: {
+    backgroundColor: "#007AFF",
+  },
+  saveButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });

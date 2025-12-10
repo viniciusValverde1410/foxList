@@ -5,7 +5,10 @@ import {
   removeUser,
   validateLogin,
   saveNewUser,
+  updateUser,
+  deleteUser,
 } from "../utils/storage";
+import * as Database from "../utils/Database";
 import { useRouter, useSegments } from "expo-router";
 
 const AuthContext = createContext({});
@@ -101,6 +104,44 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateProfile = async (updatedData) => {
+    try {
+      const result = await updateUser(user.id, updatedData);
+
+      if (result.success) {
+        setUser(result.user);
+        return { success: true };
+      }
+
+      return { success: false, message: result.message };
+    } catch (error) {
+      console.error("Erro ao atualizar perfil:", error);
+      return { success: false, message: "Erro ao atualizar perfil" };
+    }
+  };
+
+  const deleteAccount = async () => {
+    try {
+      console.log(`🗑️ Deletando conta e tarefas do usuário: ${user.email}`);
+      
+      // Primeiro, deleta todas as tarefas do usuário
+      await Database.deleteUserTasks(user.email);
+      
+      const result = await deleteUser(user.id);
+
+      if (result.success) {
+        setUser(null);
+        router.replace("/(auth)/login");
+        return { success: true };
+      }
+
+      return { success: false, message: result.message };
+    } catch (error) {
+      console.error("Erro ao deletar conta:", error);
+      return { success: false, message: "Erro ao deletar conta" };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -109,6 +150,8 @@ export const AuthProvider = ({ children }) => {
         signIn,
         signUp,
         signOut,
+        updateProfile,
+        deleteAccount,
       }}
     >
       {children}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   View, 
   Text, 
@@ -8,136 +8,83 @@ import {
   TextInput, 
   Pressable,
   Image,
-  Alert
+  Alert,
+  ActivityIndicator
 } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
+import * as Database from "../../utils/Database";
+import { getDeadlineAlert, formatDateTime } from "../../utils/dateUtils";
 
 export default function HomeScreen() {
   const { user } = useAuth();
   const params = useLocalSearchParams();
   const [searchText, setSearchText] = useState("");
   const [activeFilter, setActiveFilter] = useState("Todos");
-  
-  const [tasks, setTasks] = useState([
-    {
-      id: 1,
-      title: "Reunião de Projeto",
-      time: "Hoje, 14:00",
-      status: "alta",
-      completed: false,
-      description: "A reunião do Projeto Aurora, focará nas novas etapas de desenvolvimento e marketing. O objetivo é alinhar o cronograma e definir as próximas ações para a fase 2, com base no feedback beta."
-    },
-    {
-      id: 2,
-      title: "Estudar React Native",
-      time: "25 de Dezembro",
-      status: "media",
-      completed: false,
-      description: "Revisar conceitos de hooks, navegação e styling no React Native para o projeto em desenvolvimento."
-    },
-    {
-      id: 3,
-      title: "Comprar ingredientes",
-      time: "26 de Dezembro",
-      status: "baixa",
-      completed: true,
-      description: "Lista de compras para o jantar de fim de ano: carne, verduras, temperos e sobremesa."
-    },
-    {
-      id: 4,
-      title: "Planejar Viagem",
-      time: "27 de Dezembro",
-      status: "baixa",
-      completed: true,
-      description: "Organizar roteiro, reservas de hotel e atividades para as férias de janeiro."
-    }
-  ]);
+  const [sortBy, setSortBy] = useState("data"); // "data" ou "prioridade"
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const filters = ["Todos", "Pendentes", "Concluídas"];
 
-  // Processar ações vindas da tela de edição
+  // Inicializar banco de dados
   useEffect(() => {
-    if (params.completeTaskId) {
-      // Marcar tarefa como concluída
-      const taskId = parseInt(params.completeTaskId);
-      setTasks(currentTasks => currentTasks.map(task => 
-        task.id === taskId 
-          ? { ...task, completed: true }
-          : task
-      ));
-      Alert.alert("✅ Parabéns!", "Tarefa concluída com sucesso!");
-      
-      // Limpar parâmetro
-      router.replace('/(tabs)/home');
-    }
-    
-    if (params.updateTask) {
-      // Atualizar tarefa existente
-      try {
-        const updatedTask = JSON.parse(params.updateTask);
-        setTasks(currentTasks => currentTasks.map(task => 
-          task.id === parseInt(updatedTask.id)
-            ? { 
-                ...task, 
-                title: updatedTask.title,
-                description: updatedTask.description,
-                status: updatedTask.status,
-                time: updatedTask.deadline
-              }
-            : task
-        ));
-        Alert.alert("✅ Sucesso!", "Tarefa atualizada com sucesso!");
-        
-        // Limpar parâmetro
-        router.replace('/(tabs)/home');
-      } catch (error) {
-        console.error('Erro ao atualizar tarefa:', error);
-      }
-    }
-    
-    if (params.newTask) {
-      // Adicionar nova tarefa
-      try {
-        const newTask = JSON.parse(params.newTask);
-        const taskToAdd = {
-          id: parseInt(newTask.id),
-          title: newTask.title,
-          description: newTask.description,
-          status: newTask.status,
-          time: newTask.deadline,
-          completed: false
-        };
-        setTasks(currentTasks => [...currentTasks, taskToAdd]);
-        Alert.alert("✅ Sucesso!", "Nova tarefa criada com sucesso!");
-        
-        // Limpar parâmetro
-        router.replace('/(tabs)/home');
-      } catch (error) {
-        console.error('Erro ao criar tarefa:', error);
-      }
-    }
-  }, [params.completeTaskId, params.updateTask, params.newTask]);
+    initDB();
+  }, []);
 
-  const toggleTaskCompletion = (taskId) => {
-    const task = tasks.find(t => t.id === taskId);
-    const newStatus = !task.completed;
-    
-    setTasks(tasks.map(task => 
-      task.id === taskId 
-        ? { ...task, completed: newStatus }
-        : task
-    ));
+  // Atualizar lista quando a tela ganhar foco
+  useFocusEffect(
+    useCallback(() => {
+      loadTasks();
+    }, [])
+  );
 
-    // Feedback visual
-    if (newStatus) {
-      Alert.alert("✅ Parabéns!", "Tarefa concluída com sucesso!", [
-        { text: "OK" }
-      ]);
+  const initDB = async () => {
+    try {
+      await Database.initDatabase();
+      // Vincular tarefas órfãs ao usuário atual
+      if (user?.email) {
+        await Database.updateOrphanTasks(user.email);
+      }
+      await loadTasks();
+    } catch (error) {
+      Alert.alert("Erro", "Falha ao inicializar o banco de dados");
+      console.error(error);
     }
   };
 
-  const deleteTask = (taskId) => {
+  const loadTasks = async () => {
+    try {
+      setLoading(true);
+      const allTasks = await Database.getAllTasks(user?.email);
+      setTasks(allTasks);
+    } catch (error) {
+      Alert.alert("Erro", "Falha ao carregar tarefas");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleTaskCompletion = async (taskId) => {
+    const task = tasks.find(t => t.id === taskId);
+    const newStatus = !task.completed;
+    
+    try {
+      await Database.toggleTaskCompletion(taskId, newStatus);
+      await loadTasks(); // Recarregar tarefas
+
+      // Feedback visual
+      if (newStatus) {
+        Alert.alert("✅ Parabéns!", "Tarefa concluída com sucesso!");
+      }
+    } catch (error) {
+      Alert.alert("Erro", "Falha ao atualizar tarefa");
+      console.error(error);
+    }
+  };
+
+  const deleteTaskHandler = (taskId) => {
     const task = tasks.find(t => t.id === taskId);
     Alert.alert(
       'Deletar Tarefa',
@@ -147,18 +94,19 @@ export default function HomeScreen() {
         { 
           text: 'Deletar', 
           style: 'destructive',
-          onPress: () => setTasks(tasks.filter(task => task.id !== taskId))
+          onPress: async () => {
+            try {
+              await Database.deleteTask(taskId);
+              await loadTasks(); // Recarregar tarefas
+              Alert.alert("✅ Sucesso!", "Tarefa deletada com sucesso!");
+            } catch (error) {
+              Alert.alert("Erro", "Falha ao deletar tarefa");
+              console.error(error);
+            }
+          }
         }
       ]
     );
-  };
-
-  const updateTask = (taskId, updatedData) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId 
-        ? { ...task, ...updatedData }
-        : task
-    ));
   };
 
   const getFilteredTasks = () => {
@@ -180,6 +128,16 @@ export default function HomeScreen() {
     }
     // "Todos" mostra todas as tarefas (sem filtro adicional)
 
+    // Ordenar
+    if (sortBy === "data") {
+      // Ordenar por data (mais recente primeiro)
+      filteredTasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    } else if (sortBy === "prioridade") {
+      // Ordenar por prioridade (alta > média > baixa)
+      const priorityOrder = { alta: 3, media: 2, baixa: 1 };
+      filteredTasks.sort((a, b) => priorityOrder[b.status] - priorityOrder[a.status]);
+    }
+
     return filteredTasks;
   };
 
@@ -192,33 +150,41 @@ export default function HomeScreen() {
         description: task.description,
         priority: task.status === 'alta' ? 'Alta' : task.status === 'media' ? 'Média' : 'Baixa',
         deadline: task.time,
-        onUpdate: updateTask
+        isNew: false
       }
     });
   };
 
   const handleCreateNewTask = () => {
-    const newId = Math.max(...tasks.map(t => t.id)) + 1;
     router.push({
       pathname: '/editTask',
       params: {
-        id: newId,
         title: '',
         description: '',
         priority: 'Baixa',
-        deadline: 'Hoje, 14:00',
+        deadline: '',
         isNew: true
       }
     });
   };
 
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#874a24" />
+        <Text style={styles.loadingText}>Carregando tarefas...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
+        <View style={styles.taskCounter}>
+          <Text style={styles.counterNumber}>{tasks.filter(t => !t.completed).length}</Text>
+          <Text style={styles.counterLabel}>Pendentes</Text>
+        </View>
         <Text style={styles.title}>Minhas Tarefas</Text>
         <Image 
           source={require('../../assets/FoxList.png')} 
@@ -257,6 +223,41 @@ export default function HomeScreen() {
         ))}
       </View>
 
+      {/* Botões de Ordenação */}
+      <View style={styles.sortContainer}>
+        <Text style={styles.sortLabel}>Ordenar por:</Text>
+        <View style={styles.sortButtons}>
+          <TouchableOpacity
+            style={[
+              styles.sortButton,
+              sortBy === "data" && styles.activeSortButton
+            ]}
+            onPress={() => setSortBy("data")}
+          >
+            <Text style={[
+              styles.sortButtonText,
+              sortBy === "data" && styles.activeSortButtonText
+            ]}>
+              📅 Data
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.sortButton,
+              sortBy === "prioridade" && styles.activeSortButton
+            ]}
+            onPress={() => setSortBy("prioridade")}
+          >
+            <Text style={[
+              styles.sortButtonText,
+              sortBy === "prioridade" && styles.activeSortButtonText
+            ]}>
+              ⚠️ Prioridade
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Task List */}
       <ScrollView style={styles.taskList}>
         {getFilteredTasks().map((task) => (
@@ -273,13 +274,34 @@ export default function HomeScreen() {
               </TouchableOpacity>
               
               <View style={styles.taskInfo}>
-                <Text style={[
-                  styles.taskTitle,
-                  task.completed && styles.completedTask
-                ]}>
-                  {task.title}
-                </Text>
-                <Text style={styles.taskTime}>{task.time}</Text>
+                <TouchableOpacity 
+                  onPress={() => router.push({
+                    pathname: '/taskDetails',
+                    params: { id: task.id }
+                  })}
+                  style={styles.taskInfoTouchable}
+                >
+                  <Text style={[
+                    styles.taskTitle,
+                    task.completed && styles.completedTask
+                  ]}>
+                    {task.title}
+                  </Text>
+                  {/* Alerta de Prazo com Cor */}
+                  {task.time && task.time !== 'Sem prazo' && (() => {
+                    const alert = getDeadlineAlert(task.time);
+                    return (
+                      <View style={[styles.deadlineAlert, { backgroundColor: alert.backgroundColor }]}>
+                        <Text style={[styles.deadlineAlertText, { color: alert.color }]}>
+                          {alert.icon} {alert.message}
+                        </Text>
+                      </View>
+                    );
+                  })()}
+                  {(!task.time || task.time === 'Sem prazo') && (
+                    <Text style={styles.taskTime}>Sem prazo</Text>
+                  )}
+                </TouchableOpacity>
               </View>
 
               <View style={styles.taskActions}>
@@ -304,7 +326,7 @@ export default function HomeScreen() {
                 
                 <TouchableOpacity 
                   style={styles.deleteButton}
-                  onPress={() => deleteTask(task.id)}
+                  onPress={() => deleteTaskHandler(task.id)}
                 >
                   <Text style={styles.deleteIcon}>✕</Text>
                 </TouchableOpacity>
@@ -339,18 +361,25 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     backgroundColor: "#FFFFF2",
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#FFFFF2",
+  taskCounter: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#fbd87fc9",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#874a24",
   },
-  backIcon: {
-    fontSize: 18,
+  counterNumber: {
+    fontSize: 20,
     color: "#874a24",
     fontWeight: "bold",
+  },
+  counterLabel: {
+    fontSize: 10,
+    color: "#874a24",
+    fontWeight: "600",
   },
   title: {
     fontSize: 20,
@@ -404,6 +433,43 @@ const styles = StyleSheet.create({
     color: "#FAF0E6",
     fontWeight: "600",
   },
+  sortContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFF2',
+  },
+  sortLabel: {
+    fontSize: 13,
+    color: '#874a24',
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  sortButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  sortButton: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#e8ba7f',
+    alignItems: 'center',
+  },
+  activeSortButton: {
+    backgroundColor: '#fbd87fc9',
+    borderColor: '#874a24',
+  },
+  sortButtonText: {
+    fontSize: 14,
+    color: '#874a24',
+    fontWeight: '500',
+  },
+  activeSortButtonText: {
+    fontWeight: '700',
+  },
   taskList: {
     flex: 1,
     paddingHorizontal: 20,
@@ -449,6 +515,9 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 10,
   },
+  taskInfoTouchable: {
+    flex: 1,
+  },
   taskTitle: {
     fontSize: 16,
     fontWeight: "600",
@@ -461,7 +530,18 @@ const styles = StyleSheet.create({
   },
   taskTime: {
     fontSize: 13,
-    color: "#874a24",
+    color: '#874a24',
+  },
+  deadlineAlert: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  deadlineAlertText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   taskActions: {
     flexDirection: "row",
@@ -530,5 +610,14 @@ const styles = StyleSheet.create({
     fontSize: 40,
     color: '#874a24',
     fontWeight: 'bold',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#874a24',
   },
 });

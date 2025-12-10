@@ -92,6 +92,60 @@ export const validateLogin = async (email, password) => {
   }
 };
 
+// Atualizar dados do usuário
+export const updateUser = async (userId, updatedData) => {
+  try {
+    const users = await getAllUsers();
+    const userIndex = users.findIndex((u) => u.id === userId);
+
+    if (userIndex === -1) {
+      return { success: false, message: "Usuário não encontrado" };
+    }
+
+    // Verificar se o novo email já existe em outro usuário
+    if (updatedData.email) {
+      const emailExists = users.some(
+        (u) => u.email === updatedData.email && u.id !== userId
+      );
+      if (emailExists) {
+        return { success: false, message: "Email já está em uso" };
+      }
+    }
+
+    // Atualizar usuário
+    users[userIndex] = { ...users[userIndex], ...updatedData };
+    await AsyncStorage.setItem(STORAGE_KEYS.USERS_DB, JSON.stringify(users));
+
+    // Atualizar usuário logado
+    const { password: _, ...userWithoutPassword } = users[userIndex];
+    await saveUser(userWithoutPassword);
+
+    return { success: true, user: userWithoutPassword };
+  } catch (error) {
+    console.error("Erro ao atualizar usuário:", error);
+    return { success: false, message: "Erro ao atualizar usuário" };
+  }
+};
+
+// Deletar usuário
+export const deleteUser = async (userId) => {
+  try {
+    const users = await getAllUsers();
+    const filteredUsers = users.filter((u) => u.id !== userId);
+
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.USERS_DB,
+      JSON.stringify(filteredUsers)
+    );
+    await removeUser(); // Remove o usuário logado
+
+    return { success: true };
+  } catch (error) {
+    console.error("Erro ao deletar usuário:", error);
+    return { success: false, message: "Erro ao deletar usuário" };
+  }
+};
+
 // Limpar todos os dados (útil para debug)
 export const clearAllData = async () => {
   try {
